@@ -202,7 +202,7 @@ function render(){
       if(p.reason) why+=`<textarea data-id="${p.id}" data-f="notes" placeholder="Notes" aria-label="Notes">${esc(p.notes||'')}</textarea>`;
     }
     h+=`<div class="row ${cls}"><div class="n">${p._n}</div>
-      <div><div class="ptext">${esc(p.text)}</div><div class="date">${fmtDate(p.created)}</div></div>
+      <div><div class="ptext">${esc(p.text)}</div><div class="date">${fmtDate(p.created)} · <a href="#" class="fixtypo" data-id="${p.id}" style="color:inherit">fix typo</a></div></div>
       <div>${marks}</div><div class="why">${why}</div></div>`;
   }
   t.innerHTML=h;
@@ -222,6 +222,15 @@ $('addForm').addEventListener('submit',e=>{
 
 const find=id=>data.promises.find(p=>p.id===id);
 $('table').addEventListener('click',e=>{
+  const fx=e.target.closest('.fixtypo');
+  if(fx){
+    e.preventDefault();
+    const p=find(fx.dataset.id); if(!p) return;
+    const t=prompt(`Correct promise #${p._n}:`, p.text);
+    if(t===null || !t.trim() || t.trim()===p.text) return;
+    p.text=t.trim(); p.textUpdated=Date.now(); p.updated=Date.now(); save(); render();
+    return;
+  }
   const b=e.target.closest('.mk'); if(!b) return;
   const p=find(b.dataset.id); if(!p||p.status) return;
   const label=b.dataset.s==='kept'?'kept':'not kept';
@@ -258,7 +267,8 @@ function merge(remote){
     // a recorded mark always wins and never gets undone
     const status=l.status||r.status;
     const newer=(r.updated||0)>(l.updated||0)?r:l;
-    map.set(r.id,{...newer, text:l.text, created:l.created, status});
+    const textSrc=(r.textUpdated||0)>(l.textUpdated||0)?r:l;
+    map.set(r.id,{...newer, text:textSrc.text, textUpdated:textSrc.textUpdated||0, created:l.created, status});
   }
   data.promises=[...map.values()];
 }
