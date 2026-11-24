@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Promises">
+<title>Promise Tracker</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤝</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light;
+  --bg:#F3F5F8; --surface:#FFFFFF; --ink:#1C2433; --muted:#6B7385; --line:#D9DEE7;
+  --accent:#2F4A7A; --kept-row:#DDF2E2; --kept:#2E8B4E; --broken-row:#F9DEDB; --broken:#C2413A;
+  --ok:#2E8B4E; --field:#FFFFFF;
+  --serif:"Newsreader", Georgia, "Times New Roman", serif;
+  --sans:"Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme: dark;
+    --bg:#151A23; --surface:#1D2430; --ink:#E7EAF0; --muted:#9AA3B5; --line:#323B4B;
+    --accent:#9DB5E3; --kept-row:#1F3A2A; --kept:#6FCB8E; --broken-row:#432526; --broken:#F0857D;
+    --ok:#6FCB8E; --field:#232B39;
+  }
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0}
+body{background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:16px; line-height:1.45; -webkit-text-size-adjust:100%}
+.wrap{max-width:860px; margin:0 auto; padding:20px 16px 60px}
+
+header{display:flex; justify-content:space-between; align-items:flex-start; gap:12px}
+h1{font-family:var(--serif); font-weight:600; font-size:1.15rem; margin:4px 0 0; letter-spacing:.01em}
+.sync-btn{font:inherit; font-size:.85rem; background:none; border:1px solid var(--line); color:var(--muted); border-radius:999px; padding:5px 12px; cursor:pointer}
+.sync-btn.on{color:var(--ok); border-color:var(--ok)}
+
+.quote{display:block; width:100%; margin:18px 0 6px; border:none; background:transparent; resize:none; overflow:hidden;
+  font-family:var(--serif); font-style:italic; font-size:clamp(1.5rem, 5vw, 2.2rem); line-height:1.25; color:var(--ink); padding:0}
+.quote::placeholder{color:var(--muted); opacity:.6}
+.quote:focus{outline:none}
+.quote-rule{height:2px; width:64px; background:var(--accent); margin-bottom:22px}
+
+.metrics{display:flex; gap:28px; flex-wrap:wrap; margin-bottom:26px}
+.metric .num{font-family:var(--serif); font-size:1.9rem; font-weight:600; line-height:1; color:var(--ink)}
+.metric.full .num{color:var(--ok)}
+.metric .lbl{font-size:.85rem; color:var(--muted); margin-top:4px}
+
+.add{display:flex; gap:8px; margin-bottom:18px}
+.add input{flex:1; min-width:0; font:inherit; padding:11px 12px; border:1px solid var(--line); border-radius:8px; background:var(--field); color:var(--ink)}
+.add button{font:inherit; font-weight:600; padding:0 16px; border:none; border-radius:8px; background:var(--accent); color:var(--bg); cursor:pointer}
+
+.table{border-top:1px solid var(--line)}
+.row{display:grid; grid-template-columns:2.2rem minmax(0,1.6fr) 6.5rem minmax(0,1.6fr); gap:12px; padding:14px 10px; border-bottom:1px solid var(--line); align-items:start}
+.row.head{font-size:.85rem; color:var(--muted); font-weight:500; padding-top:10px; padding-bottom:10px}
+.row.kept{background:var(--kept-row)}
+.row.broken{background:var(--broken-row)}
+.n{font-family:var(--serif); color:var(--muted); font-size:1.05rem}
+.ptext{font-family:var(--serif); font-size:1.12rem; line-height:1.35; overflow-wrap:anywhere}
+.date{font-size:.75rem; color:var(--muted); margin-top:4px}
+.marks{display:flex; gap:6px}
+.mk{width:40px; height:40px; border-radius:8px; border:1px solid var(--line); background:var(--surface); font-size:1.15rem; line-height:1; cursor:pointer; color:var(--muted)}
+.mk.yes:hover{color:var(--kept); border-color:var(--kept)}
+.mk.no:hover{color:var(--broken); border-color:var(--broken)}
+.final{font-size:1.4rem; font-weight:700; padding-top:4px}
+.final.yes{color:var(--kept)} .final.no{color:var(--broken)}
+.why{display:flex; flex-direction:column; gap:8px}
+.why select,.why textarea,.why input[type=text]{font:inherit; font-size:16px; width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--field); color:var(--ink)}
+.why textarea{resize:vertical; min-height:2.6em}
+.why label.q{font-size:.85rem; color:var(--muted); margin-bottom:-4px}
+.why label.cb{display:flex; align-items:center; gap:8px; font-size:.95rem}
+.why input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
+.empty{padding:28px 10px; color:var(--muted)}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+@media (max-width:620px){
+  .row{grid-template-columns:2rem minmax(0,1fr) auto; gap:10px}
+  .row.head .h-why{display:none}
+  .why{grid-column:2 / -1}
+  .why:empty{display:none}
+}
+
+dialog{border:1px solid var(--line); border-radius:12px; background:var(--surface); color:var(--ink); max-width:420px; width:calc(100% - 32px); padding:20px}
+dialog::backdrop{background:rgba(0,0,0,.4)}
+dialog h2{font-family:var(--serif); margin:0 0 6px; font-size:1.3rem}
+dialog p{color:var(--muted); font-size:.9rem; margin:0 0 14px}
+dialog label{display:block; font-size:.85rem; color:var(--muted); margin:10px 0 4px}
+dialog input{font:inherit; font-size:16px; width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px; background:var(--field); color:var(--ink)}
+.dlg-actions{display:flex; gap:8px; justify-content:flex-end; margin-top:16px; flex-wrap:wrap}
+.dlg-actions button{font:inherit; padding:8px 14px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer}
+.dlg-actions .primary{background:var(--accent); color:var(--bg); border-color:var(--accent)}
+.status{font-size:.85rem; margin-top:10px; min-height:1.2em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Promise Tracker</h1>
+    <button class="sync-btn" id="syncBtn" type="button">Set up sync</button>
+  </header>
+
+  <textarea class="quote" id="quote" rows="1" placeholder="Add a quote to keep you going…"></textarea>
+  <div class="quote-rule"></div>
+
+  <div class="metrics">
+    <div class="metric" id="mToday"><div class="num">0/0</div><div class="lbl">kept today</div></div>
+    <div class="metric" id="mWeek"><div class="num">0/0</div><div class="lbl">kept last 7 days</div></div>
+    <div class="metric" id="mMonth"><div class="num">0/0</div><div class="lbl">kept this month</div></div>
+  </div>
+
+  <form class="add" id="addForm">
+    <input id="newPromise" type="text" placeholder="I promise to…" autocomplete="off" aria-label="New promise">
+    <button type="submit">Add</button>
+  </form>
+
+  <div class="table" id="table"></div>
+</div>
+
+<dialog id="syncDlg">
+  <h2>GitHub Gist sync</h2>
+  <p>Paste a GitHub token with the “gist” scope. Leave Gist ID blank to create a new one, or paste the ID from your other device.</p>
+  <label for="tok">Token</label>
+  <input id="tok" type="password" autocomplete="off">
+  <label for="gid">Gist ID</label>
+  <input id="gid" type="text" autocomplete="off">
+  <div class="status" id="syncStatus"></div>
+  <div class="dlg-actions">
+    <button type="button" id="syncOff">Turn off sync</button>
+    <button type="button" id="syncCancel">Close</button>
+    <button type="button" class="primary" id="syncSave">Connect</button>
+  </div>
+</dialog>
+
+<script>
+const LS_DATA='pt_data', LS_TOK='pt_token', LS_GIST='pt_gist', FILE='promise-tracker.json';
+const $=id=>document.getElementById(id);
+
+function load(){ try{ return JSON.parse(localStorage.getItem(LS_DATA)) || null }catch(e){ return null } }
+let data = load() || {quote:'', quoteUpdated:0, promises:[]};
+
+function saveLocal(){ try{ localStorage.setItem(LS_DATA, JSON.stringify(data)) }catch(e){} }
+function save(){ saveLocal(); schedulePush(); }
+
+// ---------- dates ----------
+const pad=n=>String(n).padStart(2,'0');
+const dayKey=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+function weekStart(d){ const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); const off=(x.getDay()+6)%7; x.setDate(x.getDate()-off); return x; }
+function fmtDate(ts){ return new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) }
+
+// ---------- render ----------
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function metrics(){
+  const now=new Date(), today=dayKey(now);
+  const ws=new Date(now.getFullYear(),now.getMonth(),now.getDate()-6).getTime(), we=Infinity;
+  let tK=0,tM=0,wK=0,wM=0,mK=0,mM=0;
+  for(const p of data.promises){
+    if(!p.status) continue;
+    const d=new Date(p.created);
+    if(dayKey(d)===today){ tM++; if(p.status==='kept') tK++; }
+    if(p.created>=ws && p.created<we){ wM++; if(p.status==='kept') wK++; }
+    if(d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth()){ mM++; if(p.status==='kept') mK++; }
+  }
+  setMetric('mToday',tK,tM); setMetric('mWeek',wK,wM); setMetric('mMonth',mK,mM);
+}
+function setMetric(id,k,m){ const el=$(id); el.querySelector('.num').textContent=`${k}/${m}`; el.classList.toggle('full', m>0 && k===m); }
+
+function render(){
+  const q=$('quote'); if(document.activeElement!==q){ q.value=data.quote||''; sizeQuote(); }
+  metrics();
+  const sorted=[...data.promises].sort((a,b)=>a.created-b.created);
+  sorted.forEach((p,i)=>p._n=i+1);
+  const list=sorted.reverse();
+  const t=$('table');
+  if(!list.length){ t.innerHTML='<div class="empty">No promises yet. Add your first one above.</div>'; return; }
+  let h='<div class="row head"><div>#</div><div>Promise:</div><div>Kept?</div><div class="h-why">If no, why?</div></div>';
+  for(const p of list){
+    const cls=p.status==='kept'?'kept':p.status==='broken'?'broken':'';
+    let marks;
+    if(p.status==='kept') marks='<div class="final yes" aria-label="Kept">✓</div>';
+    else if(p.status==='broken') marks='<div class="final no" aria-label="Not kept">✗</div>';
+    else marks=`<div class="marks"><button class="mk yes" data-id="${p.id}" data-s="kept" aria-label="Mark kept">✓</button><button class="mk no" data-id="${p.id}" data-s="broken" aria-label="Mark not kept">✗</button></div>`;
+    let why='';
+    if(p.status==='broken'){
+      why+=`<select data-id="${p.id}" data-f="reason" aria-label="Reason">
+        <option value="" ${!p.reason?'selected':''}>Choose a reason…</option>
+        <option value="avoided" ${p.reason==='avoided'?'selected':''}>Avoided</option>
+        <option value="unrealistic" ${p.reason==='unrealistic'?'selected':''}>Not realistic</option>
+        <option value="other" ${p.reason==='other'?'selected':''}>Other</option></select>`;
+      if(p.reason==='avoided'){
+        why+=`<label class="q">How?</label><input type="text" data-id="${p.id}" data-f="how" value="${esc(p.how||'')}">
+          <label class="cb"><input type="checkbox" data-id="${p.id}" data-f="journal" ${p.journal?'checked':''}> journal it</label>`;
+      } else if(p.reason==='unrealistic'){
+        why+=`<label class="q">What would have been realistic?</label><input type="text" data-id="${p.id}" data-f="realistic" value="${esc(p.realistic||'')}">
+          <label class="cb"><input type="checkbox" data-id="${p.id}" data-f="remake" ${p.remake?'checked':''}> make a more realistic promise</label>`;
+      }
+      if(p.reason) why+=`<textarea data-id="${p.id}" data-f="notes" placeholder="Notes" aria-label="Notes">${esc(p.notes||'')}</textarea>`;
+    }
+    h+=`<div class="row ${cls}"><div class="n">${p._n}</div>
+      <div><div class="ptext">${esc(p.text)}</div><div class="date">${fmtDate(p.created)} · <a href="#" class="fixtypo" data-id="${p.id}" style="color:inherit">fix typo</a></div></div>
+      <div>${marks}</div><div class="why">${why}</div></div>`;
+  }
+  t.innerHTML=h;
+}
+
+// ---------- events ----------
+function sizeQuote(){ const q=$('quote'); q.style.height='auto'; q.style.height=q.scrollHeight+'px'; }
+$('quote').addEventListener('input',e=>{ data.quote=e.target.value; data.quoteUpdated=Date.now(); sizeQuote(); save(); });
+
+$('addForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const inp=$('newPromise'), text=inp.value.trim(); if(!text) return;
+  const now=Date.now();
+  data.promises.push({id:now.toString(36)+Math.random().toString(36).slice(2,7), text, created:now, status:null, updated:now});
+  inp.value=''; save(); render();
+});
+
+const find=id=>data.promises.find(p=>p.id===id);
+$('table').addEventListener('click',e=>{
+  const fx=e.target.closest('.fixtypo');
+  if(fx){
+    e.preventDefault();
+    const p=find(fx.dataset.id); if(!p) return;
+    const t=prompt(`Correct promise #${p._n}:`, p.text);
+    if(t===null || !t.trim() || t.trim()===p.text) return;
+    p.text=t.trim(); p.textUpdated=Date.now(); p.updated=Date.now(); save(); render();
+    return;
+  }
+  const b=e.target.closest('.mk'); if(!b) return;
+  const p=find(b.dataset.id); if(!p||p.status) return;
+  const label=b.dataset.s==='kept'?'kept':'not kept';
+  if(!confirm(`Mark #${p._n} as ${label}? This can’t be changed later.`)) return;
+  p.status=b.dataset.s; p.updated=Date.now(); save(); render();
+});
+$('table').addEventListener('change',e=>{
+  const el=e.target, p=el.dataset.id&&find(el.dataset.id); if(!p) return;
+  const f=el.dataset.f;
+  p[f]= el.type==='checkbox'? el.checked : el.value;
+  p.updated=Date.now(); save();
+  if(f==='reason') render();
+});
+$('table').addEventListener('input',e=>{
+  const el=e.target; if(el.tagName==='SELECT'||el.type==='checkbox') return;
+  const p=el.dataset.id&&find(el.dataset.id); if(!p) return;
+  p[el.dataset.f]=el.value; p.updated=Date.now(); saveLocal(); schedulePush();
+});
+
+// re-check metrics when day rolls over / app reopens
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ metrics(); pull(); } });
+
+// ---------- Gist sync ----------
+const tok=()=>localStorage.getItem(LS_TOK)||'', gid=()=>localStorage.getItem(LS_GIST)||'';
+const api=(path,opt={})=>fetch('https://api.github.com'+path,{...opt,headers:{'Authorization':'token '+tok(),'Accept':'application/vnd.github+json',...(opt.body?{'Content-Type':'application/json'}:{})}});
+
+function merge(remote){
+  if(!remote||!Array.isArray(remote.promises)) return;
+  if((remote.quoteUpdated||0)>(data.quoteUpdated||0)){ data.quote=remote.quote||''; data.quoteUpdated=remote.quoteUpdated; }
+  const map=new Map(data.promises.map(p=>[p.id,p]));
+  for(const r of remote.promises){
+    const l=map.get(r.id);
+    if(!l){ map.set(r.id,r); continue; }
+    // a recorded mark always wins and never gets undone
+    const status=l.status||r.status;
+    const newer=(r.updated||0)>(l.updated||0)?r:l;
+    const textSrc=(r.textUpdated||0)>(l.textUpdated||0)?r:l;
+    map.set(r.id,{...newer, text:textSrc.text, textUpdated:textSrc.textUpdated||0, created:l.created, status});
+  }
+  data.promises=[...map.values()];
+}
+
+let pushTimer=null, pulling=false;
+function schedulePush(){ if(!tok()||!gid()) return; clearTimeout(pushTimer); pushTimer=setTimeout(push,1500); }
+async function push(){
+  if(!tok()||!gid()) return;
+  try{
+    // pull-merge first so another device's changes aren't overwritten
+    await pull(true);
+    const r=await api('/gists/'+gid(),{method:'PATCH',body:JSON.stringify({files:{[FILE]:{content:JSON.stringify(data)}}})});
+    setSyncBtn(r.ok);
+  }catch(e){ setSyncBtn(false); }
+}
+async function pull(silent){
+  if(!tok()||!gid()||pulling) return;
+  pulling=true;
+  try{
+    const r=await api('/gists/'+gid()); if(!r.ok){ setSyncBtn(false); return; }
+    const g=await r.json(), f=g.files&&g.files[FILE];
+    if(f){
+      let content=f.content;
+      if(f.truncated){ content=await (await fetch(f.raw_url)).text(); }
+      merge(JSON.parse(content)); saveLocal();
+      if(!silent) render();
+    }
+    setSyncBtn(true);
+  }catch(e){ setSyncBtn(false); }
+  finally{ pulling=false; }
+}
+function setSyncBtn(ok){
+  const b=$('syncBtn');
+  if(!tok()||!gid()){ b.textContent='Set up sync'; b.classList.remove('on'); return; }
+  b.textContent= ok?'Synced':'Sync error'; b.classList.toggle('on',ok);
+}
+
+$('syncBtn').addEventListener('click',()=>{ $('tok').value=tok(); $('gid').value=gid(); $('syncStatus').textContent=''; $('syncDlg').showModal(); });
+$('syncCancel').addEventListener('click',()=>$('syncDlg').close());
+$('syncOff').addEventListener('click',()=>{ localStorage.removeItem(LS_TOK); localStorage.removeItem(LS_GIST); setSyncBtn(false); $('syncDlg').close(); });
+$('syncSave').addEventListener('click',async()=>{
+  const st=$('syncStatus'); const t=$('tok').value.trim(), g=$('gid').value.trim();
+  if(!t){ st.textContent='Paste a token to connect.'; return; }
+  localStorage.setItem(LS_TOK,t);
+  st.textContent='Connecting…';
+  try{
+    if(!g){
+      const r=await api('/gists',{method:'POST',body:JSON.stringify({description:'Promise Tracker data',public:false,files:{[FILE]:{content:JSON.stringify(data)}}})});
+      if(!r.ok) throw new Error('Token was rejected. Check it has the gist scope.');
+      const j=await r.json(); localStorage.setItem(LS_GIST,j.id); $('gid').value=j.id;
+      st.textContent='Connected. Use this Gist ID on your other device: '+j.id;
+    } else {
+      localStorage.setItem(LS_GIST,g);
+      const r=await api('/gists/'+g);
+      if(!r.ok) throw new Error('Couldn’t open that gist. Check the ID and token.');
+      await pull(); await push();
+      st.textContent='Connected and synced.';
+    }
+    setSyncBtn(true);
+  }catch(e){ st.textContent=e.message; setSyncBtn(false); }
+});
+
+render(); setSyncBtn(true); pull();
+</script>
+</body>
+</html>
