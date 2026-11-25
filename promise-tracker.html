@@ -44,6 +44,9 @@ h1{font-family:var(--serif); font-weight:600; font-size:1.15rem; margin:4px 0 0;
   font-family:var(--serif); font-style:italic; font-size:clamp(1.5rem, 5vw, 2.2rem); line-height:1.25; color:var(--ink); padding:0}
 .quote::placeholder{color:var(--muted); opacity:.6}
 .quote:focus{outline:none}
+.subquote{display:block; width:100%; margin:4px 0 10px; border:none; background:transparent; resize:none; overflow:hidden; font-family:var(--serif); font-size:clamp(1rem,3.2vw,1.2rem); line-height:1.35; color:var(--muted); padding:0}
+.subquote::placeholder{color:var(--muted); opacity:.5}
+.subquote:focus{outline:none}
 .quote-rule{height:2px; width:64px; background:var(--accent); margin-bottom:22px}
 
 .metrics{display:flex; gap:28px; flex-wrap:wrap; margin-bottom:26px}
@@ -69,6 +72,8 @@ h1{font-family:var(--serif); font-weight:600; font-size:1.15rem; margin:4px 0 0;
 .mk.no:hover{color:var(--broken); border-color:var(--broken)}
 .final{font-size:1.4rem; font-weight:700; padding-top:4px}
 .final.yes{color:var(--kept)} .final.no{color:var(--broken)}
+.whytog{display:block; margin-top:2px; padding:2px 0; border:none; background:none; font:inherit; font-size:.8rem; color:var(--muted); cursor:pointer; white-space:nowrap; text-align:left}
+.whytog:hover{color:var(--ink)}
 .why{display:flex; flex-direction:column; gap:8px}
 .why select,.why textarea,.why input[type=text]{font:inherit; font-size:16px; width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--field); color:var(--ink)}
 .why textarea{resize:vertical; min-height:2.6em}
@@ -105,6 +110,7 @@ dialog input{font:inherit; font-size:16px; width:100%; padding:9px 10px; border:
   </header>
 
   <textarea class="quote" id="quote" rows="1" placeholder="Add a quote to keep you going…"></textarea>
+  <textarea class="subquote" id="quote2" rows="1" placeholder="Add a smaller quote…"></textarea>
   <div class="quote-rule"></div>
 
   <div class="metrics">
@@ -171,7 +177,9 @@ function metrics(){
 function setMetric(id,k,m){ const el=$(id); el.querySelector('.num').textContent=`${k}/${m}`; el.classList.toggle('full', m>0 && k===m); }
 
 function render(){
-  const q=$('quote'); if(document.activeElement!==q){ q.value=data.quote||''; sizeQuote(); }
+  const q=$('quote'); if(document.activeElement!==q){ q.value=data.quote||''; }
+  const q2=$('quote2'); if(document.activeElement!==q2){ q2.value=data.quote2||''; }
+  sizeQuote();
   metrics();
   const sorted=[...data.promises].sort((a,b)=>a.created-b.created);
   sorted.forEach((p,i)=>p._n=i+1);
@@ -183,10 +191,10 @@ function render(){
     const cls=p.status==='kept'?'kept':p.status==='broken'?'broken':'';
     let marks;
     if(p.status==='kept') marks='<div class="final yes" aria-label="Kept">✓</div>';
-    else if(p.status==='broken') marks='<div class="final no" aria-label="Not kept">✗</div>';
+    else if(p.status==='broken'){ const open=openWhy.has(p.id); const lbl={avoided:'Avoided',unrealistic:'Not realistic',other:'Other'}[p.reason]||'Why?'; marks=`<div class="final no" aria-label="Not kept">✗</div><button class="whytog" data-id="${p.id}" aria-expanded="${open}">${lbl} ${open?'▾':'▸'}</button>`; }
     else marks=`<div class="marks"><button class="mk yes" data-id="${p.id}" data-s="kept" aria-label="Mark kept">✓</button><button class="mk no" data-id="${p.id}" data-s="broken" aria-label="Mark not kept">✗</button></div>`;
     let why='';
-    if(p.status==='broken'){
+    if(p.status==='broken' && openWhy.has(p.id)){
       why+=`<select data-id="${p.id}" data-f="reason" aria-label="Reason">
         <option value="" ${!p.reason?'selected':''}>Choose a reason…</option>
         <option value="avoided" ${p.reason==='avoided'?'selected':''}>Avoided</option>
@@ -199,7 +207,7 @@ function render(){
         why+=`<label class="q">What would have been realistic?</label><input type="text" data-id="${p.id}" data-f="realistic" value="${esc(p.realistic||'')}">
           <label class="cb"><input type="checkbox" data-id="${p.id}" data-f="remake" ${p.remake?'checked':''}> make a more realistic promise</label>`;
       }
-      if(p.reason) why+=`<textarea data-id="${p.id}" data-f="notes" placeholder="Notes" aria-label="Notes">${esc(p.notes||'')}</textarea>`;
+      if(p.reason==='other') why+=`<textarea data-id="${p.id}" data-f="notes" placeholder="Notes" aria-label="Notes">${esc(p.notes||'')}</textarea>`;
     }
     h+=`<div class="row ${cls}"><div class="n">${p._n}</div>
       <div><div class="ptext">${esc(p.text)}</div><div class="date">${fmtDate(p.created)}</div></div>
@@ -209,7 +217,8 @@ function render(){
 }
 
 // ---------- events ----------
-function sizeQuote(){ const q=$('quote'); q.style.height='auto'; q.style.height=q.scrollHeight+'px'; }
+function sizeQuote(){ for(const id of ['quote','quote2']){ const q=$(id); q.style.height='auto'; q.style.height=q.scrollHeight+'px'; } }
+$('quote2').addEventListener('input',e=>{ data.quote2=e.target.value; data.quote2Updated=Date.now(); sizeQuote(); save(); });
 $('quote').addEventListener('input',e=>{ data.quote=e.target.value; data.quoteUpdated=Date.now(); sizeQuote(); save(); });
 
 $('addForm').addEventListener('submit',e=>{
@@ -220,13 +229,16 @@ $('addForm').addEventListener('submit',e=>{
   inp.value=''; save(); render();
 });
 
+const openWhy=new Set();
 const find=id=>data.promises.find(p=>p.id===id);
 $('table').addEventListener('click',e=>{
+  const wt=e.target.closest('.whytog');
+  if(wt){ const id=wt.dataset.id; openWhy.has(id)?openWhy.delete(id):openWhy.add(id); render(); return; }
   const b=e.target.closest('.mk'); if(!b) return;
   const p=find(b.dataset.id); if(!p||p.status) return;
   const label=b.dataset.s==='kept'?'kept':'not kept';
   if(!confirm(`Mark #${p._n} as ${label}? This can’t be changed later.`)) return;
-  p.status=b.dataset.s; p.updated=Date.now(); save(); render();
+  p.status=b.dataset.s; p.updated=Date.now(); if(p.status==='broken') openWhy.add(p.id); save(); render();
 });
 $('table').addEventListener('change',e=>{
   const el=e.target, p=el.dataset.id&&find(el.dataset.id); if(!p) return;
@@ -251,6 +263,7 @@ const api=(path,opt={})=>fetch('https://api.github.com'+path,{...opt,headers:{'A
 function merge(remote){
   if(!remote||!Array.isArray(remote.promises)) return;
   if((remote.quoteUpdated||0)>(data.quoteUpdated||0)){ data.quote=remote.quote||''; data.quoteUpdated=remote.quoteUpdated; }
+  if((remote.quote2Updated||0)>(data.quote2Updated||0)){ data.quote2=remote.quote2||''; data.quote2Updated=remote.quote2Updated; }
   const map=new Map(data.promises.map(p=>[p.id,p]));
   for(const r of remote.promises){
     const l=map.get(r.id);
